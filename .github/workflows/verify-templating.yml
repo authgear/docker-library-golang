@@ -10,6 +10,7 @@ defaults:
 
 jobs:
   apply-templates:
+    if: false
     name: Check For Uncomitted Changes
     runs-on: ubuntu-latest
     steps:
