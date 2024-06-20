@@ -3,7 +3,7 @@ name: CI for authgear/docker-library-golang
 on:
   push:
     branches:
-      - "main"
+      - "master"
 
 jobs:
   image:
