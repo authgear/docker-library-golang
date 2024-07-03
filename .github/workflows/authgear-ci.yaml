@@ -1,0 +1,31 @@
+name: CI for authgear/docker-library-golang
+
+on:
+  push:
+    branches:
+      - "master"
+
+concurrency:
+  group: ${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  image:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - name: docker login
+        if: ${{ github.repository == 'authgear/docker-library-golang' && github.event_name == 'push' }}
+        env:
+          DOCKER_USERNAME: ${{ secrets.QUAY_USERNAME }}
+          DOCKER_PASSWORD: ${{ secrets.QUAY_ROBOT_TOKEN }}
+        run: |
+          printf "$DOCKER_PASSWORD" | docker login --password-stdin --username "$DOCKER_USERNAME" quay.io
+      - run: make image
+        if: ${{ github.repository == 'authgear/docker-library-golang' && github.event_name == 'push' }}
+      - name: docker logout
+        if: ${{ always() }}
+        run: |
+          docker logout quay.io
