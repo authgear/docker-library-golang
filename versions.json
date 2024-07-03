@@ -381,6 +381,7 @@
       }
     },
     "variants": [
+      "noble",
       "bookworm",
       "bullseye",
       "alpine3.20",
@@ -782,6 +783,7 @@
       }
     },
     "variants": [
+      "noble",
       "bookworm",
       "bullseye",
       "alpine3.20",
@@ -1192,6 +1194,7 @@
       }
     },
     "variants": [
+      "noble",
       "bookworm",
       "bullseye",
       "alpine3.20",
