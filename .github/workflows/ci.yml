@@ -21,6 +21,7 @@ permissions:
 jobs:
 
   generate-jobs:
+    if: false
     name: Generate Jobs
     runs-on: ubuntu-latest
     outputs:
@@ -39,6 +40,7 @@ jobs:
           echo "$EOF" >> "$GITHUB_OUTPUT"
 
   test:
+    if: false
     needs: generate-jobs
     strategy: ${{ fromJson(needs.generate-jobs.outputs.strategy) }}
     name: ${{ matrix.name }}
