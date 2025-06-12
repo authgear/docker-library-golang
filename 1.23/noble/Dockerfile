@@ -1,0 +1,130 @@
+#
+# NOTE: THIS DOCKERFILE IS GENERATED VIA "apply-templates.sh"
+#
+# PLEASE DO NOT EDIT IT DIRECTLY.
+#
+
+FROM buildpack-deps:noble-scm AS build
+
+ENV PATH /usr/local/go/bin:$PATH
+
+ENV GOLANG_VERSION 1.23.10
+
+RUN set -eux; \
+	now="$(date '+%s')"; \
+	arch="$(dpkg --print-architecture)"; arch="${arch##*-}"; \
+	url=; \
+	case "$arch" in \
+		'amd64') \
+			url='https://dl.google.com/go/go1.23.10.linux-amd64.tar.gz'; \
+			sha256='535f9f81802499f2a7dbfa70abb8fda3793725fcc29460f719815f6e10b5fd60'; \
+			;; \
+		'armhf') \
+			url='https://dl.google.com/go/go1.23.10.linux-armv6l.tar.gz'; \
+			sha256='b6e00c9a72406d394b9f167e74670e28b72ed559cca8115b21be1cb9d5316cb4'; \
+			;; \
+		'arm64') \
+			url='https://dl.google.com/go/go1.23.10.linux-arm64.tar.gz'; \
+			sha256='bfb1f1df7173f44648ee070a39ab0481068632f595305a699d89cd56a33b8081'; \
+			;; \
+		'i386') \
+			url='https://dl.google.com/go/go1.23.10.linux-386.tar.gz'; \
+			sha256='ded3c0a8d6d2a0ea5e7599c49678efa05cda139d31baaaf7d8d536a9e4cc19b2'; \
+			;; \
+		'mips64el') \
+			url='https://dl.google.com/go/go1.23.10.linux-mips64le.tar.gz'; \
+			sha256='3d9a542d761877bcf46ad7ae900460a6d3d50f4a3691a40c8535128addf45a11'; \
+			;; \
+		'ppc64el') \
+			url='https://dl.google.com/go/go1.23.10.linux-ppc64le.tar.gz'; \
+			sha256='8fb94455cfa5e9a5e8af2bfbc7323a6fed2dabaffda1a69dae5dd41b669bbb57'; \
+			;; \
+		'riscv64') \
+			url='https://dl.google.com/go/go1.23.10.linux-riscv64.tar.gz'; \
+			sha256='ed68dbd165b2d2bf3725239a5bad852493b0de8ea45fa7a585159a63e0e1194a'; \
+			;; \
+		's390x') \
+			url='https://dl.google.com/go/go1.23.10.linux-s390x.tar.gz'; \
+			sha256='7d0e8651eb54fce5cfe2d4b412ddfa50144ce21907f72192a6549ffe03db4e1f'; \
+			;; \
+		*) echo >&2 "error: unsupported architecture '$arch' (likely packaging update needed)"; exit 1 ;; \
+	esac; \
+	\
+	wget -O go.tgz.asc "$url.asc"; \
+	wget -O go.tgz "$url" --progress=dot:giga; \
+	echo "$sha256 *go.tgz" | sha256sum -c -; \
+	\
+# https://github.com/golang/go/issues/14739#issuecomment-324767697
+	GNUPGHOME="$(mktemp -d)"; export GNUPGHOME; \
+# https://www.google.com/linuxrepositories/
+	gpg --batch --keyserver keyserver.ubuntu.com --recv-keys 'EB4C 1BFD 4F04 2F6D DDCC  EC91 7721 F63B D38B 4796'; \
+# let's also fetch the specific subkey of that key explicitly that we expect "go.tgz.asc" to be signed by, just to make sure we definitely have it
+	gpg --batch --keyserver keyserver.ubuntu.com --recv-keys '2F52 8D36 D67B 69ED F998  D857 78BD 6547 3CB3 BD13'; \
+	gpg --batch --verify go.tgz.asc go.tgz; \
+	gpgconf --kill all; \
+	rm -rf "$GNUPGHOME" go.tgz.asc; \
+	\
+	tar -C /usr/local -xzf go.tgz; \
+	rm go.tgz; \
+	\
+# save the timestamp from the tarball so we can restore it for reproducibility, if necessary (see below)
+	SOURCE_DATE_EPOCH="$(stat -c '%Y' /usr/local/go)"; \
+	export SOURCE_DATE_EPOCH; \
+	touchy="$(date -d "@$SOURCE_DATE_EPOCH" '+%Y%m%d%H%M.%S')"; \
+# for logging validation/edification
+	date --date "@$SOURCE_DATE_EPOCH" --rfc-2822; \
+# sanity check (detected value should be older than our wall clock)
+	[ "$SOURCE_DATE_EPOCH" -lt "$now" ]; \
+	\
+	if [ "$arch" = 'armhf' ]; then \
+		[ -s /usr/local/go/go.env ]; \
+		before="$(go env GOARM)"; [ "$before" != '7' ]; \
+		{ \
+			echo; \
+			echo '# https://github.com/docker-library/golang/issues/494'; \
+			echo 'GOARM=7'; \
+		} >> /usr/local/go/go.env; \
+		after="$(go env GOARM)"; [ "$after" = '7' ]; \
+# (re-)clamp timestamp for reproducibility (allows "COPY --link" to be more clever/useful)
+		touch -t "$touchy" /usr/local/go/go.env /usr/local/go; \
+	fi; \
+	\
+# ideally at this point, we would just "COPY --link ... /usr/local/go/ /usr/local/go/" but BuildKit insists on creating the parent directories (perhaps related to https://github.com/opencontainers/image-spec/pull/970), and does so with unreproducible timestamps, so we instead create a whole new "directory tree" that we can "COPY --link" to accomplish what we want
+	mkdir /target /target/usr /target/usr/local; \
+	mv -vT /usr/local/go /target/usr/local/go; \
+	ln -svfT /target/usr/local/go /usr/local/go; \
+	touch -t "$touchy" /target/usr/local /target/usr /target; \
+	\
+# smoke test
+	go version; \
+# make sure our reproducibile timestamp is probably still correct (best-effort inline reproducibility test)
+	epoch="$(stat -c '%Y' /target/usr/local/go)"; \
+	[ "$SOURCE_DATE_EPOCH" = "$epoch" ]; \
+	find /target -newer /target/usr/local/go -exec sh -c 'ls -ld "$@" && exit "$#"' -- '{}' +
+
+FROM buildpack-deps:noble-scm
+
+# install cgo-related dependencies
+RUN set -eux; \
+	apt-get update; \
+	apt-get install -y --no-install-recommends \
+		g++ \
+		gcc \
+		libc6-dev \
+		make \
+		pkg-config \
+	; \
+	rm -rf /var/lib/apt/lists/*
+
+ENV GOLANG_VERSION 1.23.10
+
+# don't auto-upgrade the gotoolchain
+# https://github.com/docker-library/golang/issues/472
+ENV GOTOOLCHAIN=local
+
+ENV GOPATH /go
+ENV PATH $GOPATH/bin:/usr/local/go/bin:$PATH
+# (see notes above about "COPY --link")
+COPY --from=build --link /target/ /
+RUN mkdir -p "$GOPATH/src" "$GOPATH/bin" && chmod -R 1777 "$GOPATH"
+WORKDIR $GOPATH
