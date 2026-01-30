@@ -383,6 +383,7 @@
       }
     },
     "variants": [
+      "noble",
       "trixie",
       "bookworm",
       "alpine3.23",
@@ -786,6 +787,7 @@
       }
     },
     "variants": [
+      "noble",
       "trixie",
       "bookworm",
       "alpine3.23",
@@ -1189,6 +1191,7 @@
       }
     },
     "variants": [
+      "noble",
       "trixie",
       "bookworm",
       "alpine3.23",
@@ -1295,6 +1298,7 @@
       }
     },
     "variants": [
+      "noble",
       "trixie",
       "bookworm",
       "alpine3.23",
