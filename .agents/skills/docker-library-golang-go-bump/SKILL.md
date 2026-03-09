@@ -1,6 +1,6 @@
 ---
 name: docker-library-golang-go-bump
-description: Update docker-library-golang to a target Go patch release (for example 1.25.8) using the team's branch/cherry-pick/update.sh workflow. Use when a user asks to bump Go image versions in this repo, create a date-named branch from docker/master, cherry-pick existing local commits except the most recent generated commit, run ./update.sh in a GNU-coreutils-compatible Linux shell, and commit the generated changes.
+description: Update docker-library-golang to a target Go patch release (for example 1.25.8) using the team's branch/cherry-pick/update.sh workflow. Use when a user asks to bump Go image versions in this repo, create a date-named branch from docker/master, cherry-pick existing local commits while excluding generated `Run ./update.sh` commits, run ./update.sh in a GNU-coreutils-compatible Linux shell, and commit the generated changes.
 ---
 
 # Docker Library Golang Go Bump
@@ -18,8 +18,8 @@ Require these inputs before running commands:
 
 1. Verify clean understanding of commit policy:
 - Cherry-pick existing commits from local branch onto fresh branch from `docker/master`.
-- Exclude the latest commit from the local branch.
-- Latest commit is typically the generated `Run ./update.sh` commit.
+- Exclude commits with subject exactly `Run ./update.sh` (generated commits), regardless of position in history.
+- Include other commits (for example skill/workflow updates), even when they are the latest commit on the source branch.
 
 2. Fetch upstream and create a branch named with today in `YYYY-MM-DD`:
 
@@ -28,10 +28,10 @@ git fetch docker
 git checkout -b "$(date +%F)" docker/master
 ```
 
-3. Compute cherry-picks from previous branch, excluding the last commit:
+3. Compute cherry-picks from previous branch, excluding generated `Run ./update.sh` commits:
 
 ```bash
-.codex/skills/docker-library-golang-go-bump/scripts/cherry-picks-except-last.sh
+.agents/skills/docker-library-golang-go-bump/scripts/cherry-picks-except-last.sh <source-branch>
 ```
 
 4. Cherry-pick each returned commit in order:
@@ -62,7 +62,7 @@ git commit -m "Run ./update.sh"
 
 ## Guardrails
 
-- Never cherry-pick the most recent commit from the source branch.
+- Never cherry-pick commits with subject `Run ./update.sh` from the source branch.
 - Resolve conflicts during cherry-picks before continuing.
 - Keep branch name date-based (`YYYY-MM-DD`) for this workflow.
 - If `update.sh` output differs by environment, rerun from Linux shell with GNU coreutils.

@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # Print commit SHAs from source branch that are not on docker/master,
-# excluding the latest commit on source branch.
+# excluding generated commits with subject "Run ./update.sh".
 # Usage:
 #   cherry-picks-except-last.sh [source-branch] [upstream-main]
 # Defaults:
@@ -29,13 +29,19 @@ if [ -z "$commits_raw" ]; then
   exit 0
 fi
 
-# Bash 3 compatible line counting and iteration (no mapfile/readarray).
-commit_count="$(printf '%s\n' "$commits_raw" | wc -l | awk '{print $1}')"
+selected_count=0
+while IFS= read -r commit; do
+  [ -z "$commit" ] && continue
+  commit_subject="$(git show -s --format=%s "$commit")"
+  if [ "$commit_subject" = "Run ./update.sh" ]; then
+    continue
+  fi
+  printf '%s\n' "$commit"
+  selected_count="$((selected_count + 1))"
+done <<EOF
+$commits_raw
+EOF
 
-if [ "$commit_count" -eq 1 ]; then
-  echo "only one commit exists and must be excluded by policy; nothing to cherry-pick" >&2
-  exit 0
+if [ "$selected_count" -eq 0 ]; then
+  echo "no non-generated commits to cherry-pick from ${source_branch} onto ${upstream_main}" >&2
 fi
-
-# Exclude the last (most recent) commit.
-printf '%s\n' "$commits_raw" | head -n "$((commit_count - 1))"
